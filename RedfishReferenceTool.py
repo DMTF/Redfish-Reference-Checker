@@ -6,7 +6,8 @@ from bs4 import BeautifulSoup
 import os
 import sys
 import requests
-
+import argparse
+import json
 
 def getSchemaFile(url, chkCert=False):
     """
@@ -31,7 +32,7 @@ def getSchemaFile(url, chkCert=False):
             soup = BeautifulSoup(filedata, "html.parser")
             success = True
     except Exception as ex:
-        sys.stderr.write("Something went wrong: %s %s" % (ex, status))
+        print("Something went wrong: %s %s" % (ex, status), file=sys.stderr)
 
     return success, soup, status
 
@@ -47,26 +48,54 @@ def getRefs(soup):
     refurls = [ref.get('uri') for ref in references]
     return refurls
 
+def getAlias(uri, aliasDict):
+    """
+    Grab a file from an alias from an alias dictionary
+
+    param uri: uri
+    param aliasDict: references to a local file for a uri
+    return boolean, soup
+    """
+    soup = None
+    if uri in aliasDict:
+        fileName = aliasDict[uri]
+        if not os.path.isfile(fileName):
+            print("No such file: %s %s" % (uri, fileName), file=sys.stderr) 
+            return False, None
+        with open(fileName) as f:
+            print(fileName)
+            fileData = f.read()
+            soup = BeautifulSoup(fileData, "html.parser")
+            print("Using alias: {} {}".format(uri, fileName))
+    return soup is not None, soup
 
 if __name__ == "__main__":
-    rootURL = None
     chkCert = True
 
-    for arg in sys.argv[1:]:
-        if arg == '--nocert' and chkCert == True:
-            chkCert = False
-        elif rootURL is None:
-            rootURL = arg
-        else:
-            print("invalid option:", arg)
-            sys.exit(1)
-    if len(sys.argv) > 3 or rootURL is None:
-        print("usage: RedfishReferenceTool.py [url] [--nocert]")
-        sys.exit(1)
+    argget = argparse.ArgumentParser(description='Tool that checks if reference contain all valid URLs')
+    argget.add_argument('url', type=str, help='url to test')
+    argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
+    argget.add_argument('--alias', type=str, default=None, help='location of alias json file')
+    
+    args = argget.parse_args()
+
+    rootURL = args.url
+    chkCert = not args.nochkcert
+    aliasFile = args.alias
+    
+    aliasDict = dict()
+    if aliasFile is not None:
+        print("Using alias file: " + aliasFile)
+        with open(aliasFile) as f:
+            aliasDict.update( json.loads(f.read()) )
+            print (aliasDict)
+
     rootHost = rootURL.rsplit('/',rootURL.count('/')-2)[0]
     print(rootHost)
     print(rootURL)
-    success, rootSoup, status = getSchemaFile(rootURL, chkCert)
+    success, rootSoup = getAlias(rootURL, aliasDict)
+    if not success:
+        success, rootSoup, status = getSchemaFile(rootURL, chkCert)
 
     if not success:
         print("No Schema Found at URL")
@@ -84,14 +113,16 @@ if __name__ == "__main__":
                 continue
             allRefs.add(ref)
             print(ref)
-            success, soupOfRef, status = getSchemaFile(ref if 'http' in ref[:8] else rootHost+ref, chkCert = chkCert)
+
+            success, soupOfRef = getAlias(ref, aliasDict)
+            if not success:
+                success, soupOfRef, status = getSchemaFile(ref if 'http' in ref[:8] else rootHost+ref, chkCert = chkCert)
             if success:
                 newRefs += getRefs(soupOfRef)
             else:
                 print (success, soupOfRef, status)
                 missingRefs += 1
-                print (
-                    "Something went wrong in script: No Valid Schema Found", missingRefs)
+                print ("Something went wrong in script: No Valid Schema Found", missingRefs, file=sys.stderr)
         refs = newRefs
 
     if len(allRefs) > 0:

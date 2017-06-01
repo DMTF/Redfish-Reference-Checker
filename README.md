@@ -11,14 +11,19 @@ RedfishReferenceTool.py is a python3 tool that checks for valid reference URLs i
 ## Installation
 Copy RedfishReferenceTool.py into any tool directory, and requires no extra configuration.
 
-Run: python3 RedfishReferenceTool.py [url] [--nocert]
+Run: python3 RedfishReferenceTool.py [url] [--nocert] [--alias file]
 
-Note that quotations or an escape must be used for '$' and '#' characters, when using ODATA Uris.
+URL includes authority.  Note that quotations or an escape must be used for '$' and '#' characters, when using ODATA Uris.
 
 ## Execution 
 Upon execution, attempts to get an XML file at the URL given, and exits with 1
 on bad URLs or non xml formatted files, then dereferences all reference URLs
 in the file.
+
+Upon specifying --nocert, it will not attempt to verify any certification provided.
+
+Upon specifying --alias, it will read a json-formatted file that provides an alias for URIs or URLs not currently published online,
+and instead points to a local file.
 
 Exits with success if the amount of missing references is zero.
 
