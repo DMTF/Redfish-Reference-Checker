@@ -8,7 +8,7 @@ import sys
 import requests
 import argparse
 import json
-    
+
 def getSchemaFile(url, chkCert=False):
     """
     Get a schemafile from a URL, returns None if it fails.
@@ -32,7 +32,7 @@ def getSchemaFile(url, chkCert=False):
             soup = BeautifulSoup(filedata, "html.parser")
             success = True
     except Exception as ex:
-        sys.stderr.write("Something went wrong: %s %s" % (ex, status))
+        print("Something went wrong: %s %s" % (ex, status), file=sys.stderr)
 
     return success, soup, status
 
@@ -49,17 +49,23 @@ def getRefs(soup):
     return refurls
 
 def getAlias(uri, aliasDict):
+    """
+    Grab a file from an alias from an alias dictionary
+
+    param uri: uri
+    param aliasDict: references to a local file for a uri
+    return boolean, soup
+    """
     soup = None
     if uri in aliasDict:
         fileName = aliasDict[uri]
         if not os.path.isfile(fileName):
-            sys.stderr.write("No such file named: %s" % fileName)
+            print("No such file: %s %s" % (uri, fileName), file=sys.stderr) 
             return False, None
         with open(fileName) as f:
-            input(fileName)
+            print(fileName)
             fileData = f.read()
-            input(fileData)
-            soup = BeautifulSoup(filedata, "html.parser")
+            soup = BeautifulSoup(fileData, "html.parser")
             print("Using alias: {} {}".format(uri, fileName))
     return soup is not None, soup
 
@@ -79,8 +85,9 @@ if __name__ == "__main__":
     
     aliasDict = dict()
     if aliasFile is not None:
+        print("Using alias file: " + aliasFile)
         with open(aliasFile) as f:
-            aliasDict = json.loads(f.read())
+            aliasDict.update( json.loads(f.read()) )
             print (aliasDict)
 
     rootHost = rootURL.rsplit('/',rootURL.count('/')-2)[0]
@@ -115,8 +122,7 @@ if __name__ == "__main__":
             else:
                 print (success, soupOfRef, status)
                 missingRefs += 1
-                print (
-                    "Something went wrong in script: No Valid Schema Found", missingRefs)
+                print ("Something went wrong in script: No Valid Schema Found", missingRefs, file=sys.stderr)
         refs = newRefs
 
     if len(allRefs) > 0:

@@ -25,6 +25,12 @@ class TestDMTF(unittest.TestCase):
         uri = "http://baduri"
         success, soup, status = rst.getSchemaFile(uri)
         self.assertEqual(success, False)
+    
+    def test_bad_alias(self):
+        uri = "http://baduri"
+        dictin = {uri: 'none'}
+        success, soup = rst.getAlias(uri, dictin)
+        self.assertEqual(success, False)
 
     def test_find_refs(self):
         samplexml = '<edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">\
