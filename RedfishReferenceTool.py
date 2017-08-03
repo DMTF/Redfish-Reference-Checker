@@ -3,6 +3,7 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Reference-Checker/LICENSE.md
 
 import bs4
+from glob import glob
 from bs4 import BeautifulSoup
 import os
 import sys
@@ -10,6 +11,9 @@ import requests
 import argparse
 import json
 from distutils.version import LooseVersion
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 expectedVersion = '4.5.3'
 
@@ -88,7 +92,8 @@ if __name__ == "__main__":
     versionCheck(bs4.__version__, expectedVersion)
 
     argget = argparse.ArgumentParser(description='Tool that checks if reference contain all valid URLs')
-    argget.add_argument('url', type=str, help='url to test')
+    argget.add_argument('url', type=str, help='destination url to test')
+    argget.add_argument('--file', action='store_true', help='use url as filepath to local file')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--alias', type=str, default=None, help='location of alias json file')
 
@@ -102,19 +107,36 @@ if __name__ == "__main__":
     if aliasFile is not None:
         print("Using alias file: " + aliasFile)
         with open(aliasFile) as f:
-            aliasDict.update(json.loads(f.read()))
-            print(aliasDict)
+            newdict = json.loads(f.read())
+            # if entry ends in asterisk, replace it with ever file in asterisk directory on right
+            for key in newdict:
+                if '*' in key:
+                    filelist = glob(newdict[key])
+                    for f in filelist:
+                        path, name = os.path.split(f)
+                        aliasKey = key.replace('*', name)
+                        aliasDict[aliasKey] = f
+                else:
+                    aliasDict[key] = newdict[key]
+            for key in aliasDict:
+                print(key, aliasDict[key])
 
-    rootHost = rootURL.rsplit('/', rootURL.count('/')-2)[0]
-    print(rootHost)
-    print(rootURL)
-    success, rootSoup = getAlias(rootURL, aliasDict)
-    if not success:
-        success, rootSoup, status = getSchemaFile(rootURL, chkCert)
+    if not args.file:
+        rootHost = rootURL.rsplit('/', rootURL.count('/')-2)[0]
+        print(rootHost)
+        print(rootURL)
+        success, rootSoup = getAlias(rootURL, aliasDict)
+        if not success:
+            success, rootSoup, status = getSchemaFile(rootURL, chkCert)
+    
+    else:
+        rootHost = None
+        success, rootSoup = getAlias("local", {"local": rootURL})
 
     if not success:
-        print("No Schema Found at URL")
+        print("No Schema Found for given destination")
         sys.exit(1)
+
 
     missingRefs = 0
     refs = getRefs(rootSoup)
@@ -131,7 +153,12 @@ if __name__ == "__main__":
 
             success, soupOfRef = getAlias(ref, aliasDict)
             if not success:
-                success, soupOfRef, status = getSchemaFile(ref if 'http' in ref[:8] else rootHost+ref, chkCert=chkCert)
+                if 'http' in ref[:8]:
+                    success, soupOfRef, status = getSchemaFile(ref, chkCert=chkCert)
+                elif rootHost is not None:
+                    success, soupOfRef, status = getSchemaFile(rootHost+ref, chkCert=chkCert)
+                else:
+                    print("in file mode, yet contains local uri")
             if success:
                 newRefs += getRefs(soupOfRef)
             else:

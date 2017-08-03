@@ -31,7 +31,9 @@ in the file.
 Upon specifying --nocert, it will not attempt to verify any certification provided.
 
 Upon specifying --alias, it will read a json-formatted file that provides an alias for URIs or URLs not currently published online,
-and instead points to a local file.
+and instead points to a local file.  
+For single files, a single URL may be mapped on the left hand side to point to a file stored on the right.  
+If a URL is appended with /\*, then it may point to a directory appended with /\* on the right, such that each file in the directory will be mapped to its own URL.
 
 Exits with success if the amount of missing references is zero.
 
