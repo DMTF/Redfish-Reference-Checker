@@ -1,5 +1,6 @@
 {
     "exampleUri1":"file1",
-    "exampleUri2":"file2"
+    "exampleUri2":"file2",
+    "exampleUri3/*":"dir3/*"
 }
 
