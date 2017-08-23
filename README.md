@@ -18,7 +18,7 @@ The requirements for this tool are as follows:
 ## Installation
 Copy RedfishReferenceTool.py into any tool directory, and requires no extra configuration.
 
-Run: python3 RedfishReferenceTool.py [url] [--nochkcert] [--alias file] [--file]
+Run: python3 RedfishReferenceTool.py [url] [--nochkcert] [--alias file] [--file] [--timeout]
 
 URL includes authority.  Note that quotations or an escape must be used for '$' and '#' characters, when using ODATA Uris.
 
@@ -27,7 +27,7 @@ Upon execution, attempts to get an XML file at the URL given, and exits with 1
 on bad URLs or non xml formatted files, then dereferences all reference URLs
 in the file.
 
-Upon specifying --nochkcert, it will not attempt to verify any certification provided.
+Upon specifying --nochkcert, it will not attempt to verify any certification provided.  --timeout may be used to increase request timeouts.
 
 Upon specifying --alias, it will read a json-formatted file that provides an alias for URIs or URLs not currently published online,
 and instead points to a local file.  

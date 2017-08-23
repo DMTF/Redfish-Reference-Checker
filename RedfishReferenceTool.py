@@ -2,7 +2,6 @@
 # Copyright 2016 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Reference-Checker/LICENSE.md
 
-import bs4
 from glob import glob
 from bs4 import BeautifulSoup
 import os
@@ -15,7 +14,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-def getSchemaFile(url, chkCert=False):
+def getSchemaFile(url, chkCert=False, to=30):
     """
     Get a schemafile from a URL, returns None if it fails.
 
@@ -29,7 +28,7 @@ def getSchemaFile(url, chkCert=False):
     status = ''
     # rs-assertion: no authorization expected for schemagrabbing
     try:
-        r = requests.get(url, verify=chkCert)
+        r = requests.get(url, verify=chkCert, timeout=to)
         filedata = r.text
         status = r.status_code
         doctype = r.headers.get('content-type')
@@ -83,6 +82,7 @@ if __name__ == "__main__":
     argget.add_argument('--file', action='store_true', help='use url as filepath to local file')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--alias', type=str, default=None, help='location of alias json file')
+    argget.add_argument('--timeout', type=int, default=30, help='timeout for requests')
 
     args = argget.parse_args()
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
         print(rootURL)
         success, rootSoup = getAlias(rootURL, aliasDict)
         if not success:
-            success, rootSoup, status = getSchemaFile(rootURL, chkCert)
+            success, rootSoup, status = getSchemaFile(rootURL, chkCert, args.timeout)
 
     else:
         # Let's make a bogus alias dict and use it
@@ -143,9 +143,9 @@ if __name__ == "__main__":
             success, soupOfRef = getAlias(ref, aliasDict)
             if not success:
                 if 'http' in ref[:8]:
-                    success, soupOfRef, status = getSchemaFile(ref, chkCert=chkCert)
+                    success, soupOfRef, status = getSchemaFile(ref, chkCert, args.timeout)
                 elif rootHost is not None:
-                    success, soupOfRef, status = getSchemaFile(rootHost+ref, chkCert=chkCert)
+                    success, soupOfRef, status = getSchemaFile(rootHost+ref, chkCert, args.timeout)
                 else:
                     print("in file mode, yet contains local uri")
             if success:
