@@ -2,7 +2,6 @@
 # Copyright 2016 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Reference-Checker/LICENSE.md
 
-import bs4
 from glob import glob
 from bs4 import BeautifulSoup
 import os
@@ -10,21 +9,12 @@ import sys
 import requests
 import argparse
 import json
-from distutils.version import LooseVersion
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-expectedVersion = '4.5.3'
 
-
-def versionCheck(actual, target):
-    if not LooseVersion(actual) <= LooseVersion(target):
-        raise RuntimeError("Your version of bs4 is not <= {}, please install the appropriate library".format(expectedVersion))
-    return True
-
-
-def getSchemaFile(url, chkCert=False):
+def getSchemaFile(url, chkCert=False, to=30):
     """
     Get a schemafile from a URL, returns None if it fails.
 
@@ -38,13 +28,13 @@ def getSchemaFile(url, chkCert=False):
     status = ''
     # rs-assertion: no authorization expected for schemagrabbing
     try:
-        r = requests.get(url, verify=chkCert)
+        r = requests.get(url, verify=chkCert, timeout=to)
         filedata = r.text
         status = r.status_code
         doctype = r.headers.get('content-type')
         # check if file is returned and is legit XML
         if "xml" in doctype and status in [200, 204] and filedata:
-            soup = BeautifulSoup(filedata, "html.parser")
+            soup = BeautifulSoup(filedata, "xml")
             success = True
     except Exception as ex:
         print("Something went wrong: %s %s" % (ex, status), file=sys.stderr)
@@ -59,8 +49,8 @@ def getRefs(soup):
     param: soup: bs4 soup object
     return: list of refs
     """
-    references = soup.find_all('edmx:reference')
-    refurls = [ref.get('uri') for ref in references]
+    references = soup.find_all('edmx:Reference')
+    refurls = [ref.get('Uri') for ref in references]
     return refurls
 
 
@@ -81,21 +71,18 @@ def getAlias(uri, aliasDict):
         with open(fileName) as f:
             print(fileName)
             fileData = f.read()
-            soup = BeautifulSoup(fileData, "html.parser")
+            soup = BeautifulSoup(fileData, "xml")
             print("Using alias: {} {}".format(uri, fileName))
     return soup is not None, soup
 
 
 if __name__ == "__main__":
-    chkCert = True
-
-    versionCheck(bs4.__version__, expectedVersion)
-
     argget = argparse.ArgumentParser(description='Tool that checks if reference contain all valid URLs')
     argget.add_argument('url', type=str, help='destination url to test')
     argget.add_argument('--file', action='store_true', help='use url as filepath to local file')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--alias', type=str, default=None, help='location of alias json file')
+    argget.add_argument('--timeout', type=int, default=30, help='timeout for requests')
 
     args = argget.parse_args()
 
@@ -127,16 +114,18 @@ if __name__ == "__main__":
         print(rootURL)
         success, rootSoup = getAlias(rootURL, aliasDict)
         if not success:
-            success, rootSoup, status = getSchemaFile(rootURL, chkCert)
-    
+            success, rootSoup, status = getSchemaFile(rootURL, chkCert, args.timeout)
+
     else:
+        # Let's make a bogus alias dict and use it
         rootHost = None
         success, rootSoup = getAlias("local", {"local": rootURL})
+        if not success:
+            sys.exit(1)
 
     if not success:
-        print("No Schema Found for given destination")
+        print("No Schema Found for given destination, is this a proper xml? {}".format(rootURL))
         sys.exit(1)
-
 
     missingRefs = 0
     refs = getRefs(rootSoup)
@@ -154,9 +143,9 @@ if __name__ == "__main__":
             success, soupOfRef = getAlias(ref, aliasDict)
             if not success:
                 if 'http' in ref[:8]:
-                    success, soupOfRef, status = getSchemaFile(ref, chkCert=chkCert)
+                    success, soupOfRef, status = getSchemaFile(ref, chkCert, args.timeout)
                 elif rootHost is not None:
-                    success, soupOfRef, status = getSchemaFile(rootHost+ref, chkCert=chkCert)
+                    success, soupOfRef, status = getSchemaFile(rootHost+ref, chkCert, args.timeout)
                 else:
                     print("in file mode, yet contains local uri")
             if success:
@@ -164,14 +153,14 @@ if __name__ == "__main__":
             else:
                 print(success, soupOfRef, status)
                 missingRefs += 1
-                print("Something went wrong in script: No Valid Schema Found", missingRefs, file=sys.stderr)
+                print("Something is wrong: No Valid Schema Found #{}".format(missingRefs), file=sys.stderr)
         refs = newRefs
 
     if len(allRefs) > 0:
         print("Work complete, total failures: ", missingRefs)
         print("Total references: ", len(allRefs))
     else:
-        print("No references found.")
+        print("No references found, if this is incorrect, check capitalization/spelling of xml tags.")
 
     if missingRefs > 0:
         sys.exit(1)
