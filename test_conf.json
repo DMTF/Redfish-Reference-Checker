@@ -1,0 +1,5 @@
+{
+  "test": {
+    "command": "$interpreter RedfishReferenceTool.py $nochkcert $metadata_url"
+  }
+}
