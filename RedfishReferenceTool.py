@@ -9,9 +9,24 @@ import sys
 import requests
 import argparse
 import json
+from xml.etree.ElementTree import Element, SubElement, Comment, tostring
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+
+def generateXmlReferences(reftags):
+    # unused block to write a valid xml file instead of just printing to file
+    xml_node = Element('edmx:Edmx')
+    xml_node.set('Version', '4.0')
+    xml_node.set('xmlns:edmx', 'http://docs.oasis-open.org/odata/ns/edmx')
+
+    output_string = ""
+    for tag in reftags:
+        output_string += str(tag) + '\n'
+    return output_string
+
 
 def checkInvalidTags(soup):
     expected_tags = ['Edmx', 'Reference', 'Include', 'DataServices', 'Schema', 'EntityContainer']
@@ -62,12 +77,12 @@ def getRefs(soup):
     param: soup: bs4 soup object
     return: list of refs
     """
-    references = soup.find_all('edmx:Reference')
-    refurls = [ref.get('Uri') for ref in references]
-    for cnt, url in enumerate(refurls):
+    reftags = soup.find_all('edmx:Reference')
+    refs = [(ref.get('Uri'), ref) for ref in reftags]
+    for cnt, url in enumerate(refs):
         if url is None:
             print("The Uri in this Reference #{} is missing, please check for capitalization of Uri".format(cnt))
-    return refurls
+    return refs
 
 
 def getAlias(uri, aliasDict):
@@ -100,6 +115,7 @@ if __name__ == "__main__":
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--alias', type=str, default=None, help='location of alias json file')
     argget.add_argument('--timeout', type=int, default=30, help='timeout for requests')
+    argget.add_argument('--refoutput', type=str, help='Output file for all refs found in files')
 
     args = argget.parse_args()
 
@@ -108,6 +124,11 @@ if __name__ == "__main__":
     aliasFile = args.alias
 
     aliasDict = dict()
+
+    if args.refoutput is not None and os.path.isfile(args.refoutput):
+        print("File exists for {}, aborting".format(args.refoutput), file=sys.stderr)
+        sys.exit(10)
+
     if aliasFile is not None:
         print("Using alias file: " + aliasFile)
         with open(aliasFile) as f:
@@ -147,14 +168,17 @@ if __name__ == "__main__":
     missingRefs = list()
     refs = getRefs(rootSoup)
     allRefs = set()
+    allTags = set()
 
     # loop that finds all URLs and checks for missing or malformed items
     while len(refs) > 0:
         newRefs = []
-        for ref in refs:
+        for ref, tag in refs:
             if ref in allRefs:
                 continue
-            allRefs.add(ref)
+            if ref not in allRefs:
+                allRefs.add(ref)
+                allTags.add(tag)
             print(ref)
 
             success, soupOfRef = getAlias(ref, aliasDict)
@@ -172,6 +196,11 @@ if __name__ == "__main__":
                 missingRefs += ref
                 print("Something is wrong: No Valid Schema Found #{}".format(len(missingRefs)), file=sys.stderr)
         refs = newRefs
+
+    if args.refoutput is not None:
+        with open(args.refoutput, 'w', encoding='utf-8') as reffile:
+            for item in allTags:
+                reffile.write(str(item.prettify()))
 
     if len(allRefs) > 0:
         print("Work complete, total failures: ", len(missingRefs))
