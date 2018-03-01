@@ -39,6 +39,8 @@ def checkInvalidTags(soup):
         print('The following tags were found that may be misspelled or the wrong case:')
         for tag in bad_tags:
             print('    ' + tag)
+        return False
+    return True
 
 
 def getSchemaFile(url, chkCert=False, to=30):
@@ -62,8 +64,7 @@ def getSchemaFile(url, chkCert=False, to=30):
         # check if file is returned and is legit XML
         if "xml" in doctype and status in [200, 204] and filedata:
             soup = BeautifulSoup(filedata, "xml")
-            checkInvalidTags(soup)
-            success = True
+            success = checkInvalidTags(soup)
     except Exception as ex:
         print("Something went wrong: %s %s" % (ex, status), file=sys.stderr)
 
@@ -81,7 +82,7 @@ def getRefs(soup):
     refs = [(ref.get('Uri'), ref) for ref in reftags]
     for cnt, url in enumerate(refs):
         if url is None:
-            print("The Uri in this Reference #{} is missing, please check for capitalization of Uri".format(cnt))
+            print("The Uri in this Reference #{} is missing, please check for capitalization of Uri".format(cnt), file=sys.stderr)
     return refs
 
 
@@ -103,9 +104,8 @@ def getAlias(uri, aliasDict):
             print(fileName)
             fileData = f.read()
             soup = BeautifulSoup(fileData, "xml")
-            checkInvalidTags(soup)
             print("Using alias: {} {}".format(uri, fileName))
-    return soup is not None, soup
+    return soup is not None and checkInvalidTags(soup), soup
 
 
 if __name__ == "__main__":
