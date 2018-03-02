@@ -15,6 +15,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+tool_version = '1.0.0'
 
 def generateXmlReferences(reftags):
     # unused block to write a valid xml file instead of just printing to file
@@ -109,7 +110,7 @@ def getAlias(uri, aliasDict):
 
 
 if __name__ == "__main__":
-    argget = argparse.ArgumentParser(description='Tool that checks if reference contain all valid URLs')
+    argget = argparse.ArgumentParser(description='Redfish Reference Checker {}: A tool that checks if reference contain all valid URLs'.format(tool_version))
     argget.add_argument('url', type=str, help='destination url to test')
     argget.add_argument('--file', action='store_true', help='use url as filepath to local file')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
@@ -118,6 +119,8 @@ if __name__ == "__main__":
     argget.add_argument('--refoutput', type=str, help='Output file for all refs found in files')
 
     args = argget.parse_args()
+
+    print('Redfish Reference Checker {}'.format(tool_version))
 
     rootURL = args.url
     chkCert = not args.nochkcert
