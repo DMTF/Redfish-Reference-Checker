@@ -59,15 +59,17 @@ def getSchemaFile(url, chkCert=False, to=30):
     # rs-assertion: no authorization expected for schemagrabbing
     try:
         r = requests.get(url, verify=chkCert, timeout=to)
-        filedata = r.text
         status = r.status_code
+        r.raise_for_status()
+        filedata = r.text
         doctype = r.headers.get('content-type')
         # check if file is returned and is legit XML
         if "xml" in doctype and status in [200, 204] and filedata:
             soup = BeautifulSoup(filedata, "xml")
             success = checkInvalidTags(soup)
     except Exception as ex:
-        print("Something went wrong: %s %s" % (ex, status), file=sys.stderr)
+        print("Error while processing %s: status %s, exception %s" %
+              (url, status, ex), file=sys.stderr)
 
     return success, soup, status
 
@@ -98,14 +100,14 @@ def getAlias(uri, aliasDict):
     soup = None
     if uri in aliasDict:
         fileName = aliasDict[uri]
+        print("Using alias for URI {}, file {}".format(uri, fileName))
         if not os.path.isfile(fileName):
-            print("No such file: %s %s" % (uri, fileName), file=sys.stderr)
+            print("No such file %s for URI %s" % (fileName, uri), file=sys.stderr)
             return False, None
         with open(fileName) as f:
-            print(fileName)
             fileData = f.read()
             soup = BeautifulSoup(fileData, "xml")
-            print("Using alias: {} {}".format(uri, fileName))
+
     return soup is not None and checkInvalidTags(soup), soup
 
 
@@ -129,7 +131,7 @@ if __name__ == "__main__":
     aliasDict = dict()
 
     if args.refoutput is not None and os.path.isfile(args.refoutput):
-        print("File exists for {}, aborting".format(args.refoutput), file=sys.stderr)
+        print("File exists for {}, exiting".format(args.refoutput), file=sys.stderr)
         sys.exit(10)
 
     if aliasFile is not None:
@@ -147,12 +149,12 @@ if __name__ == "__main__":
                 else:
                     aliasDict[key] = filedict[key]
             for key in aliasDict:
-                print(key, aliasDict[key])
+                print('    key = {}, alias = {}'.format(key, aliasDict[key]))
 
     if not args.file:
-        rootHost = rootURL.rsplit('/', rootURL.count('/') - 1)[0]
-        print(rootHost)
-        print(rootURL)
+        rootHost = rootURL.rsplit('/', rootURL.count('/') - 2)[0]
+        print("root URL: {}".format(rootURL))
+        print("root host: {}".format(rootHost))
         success, rootSoup = getAlias(rootURL, aliasDict)
         if not success:
             success, rootSoup, status = getSchemaFile(rootURL, chkCert, args.timeout)
@@ -165,7 +167,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     if not success:
-        print("No Schema Found for given destination, is this a proper xml? {}".format(rootURL))
+        print("No schema found for given destination. Is '{}' a valid xml?".format(rootURL))
         sys.exit(1)
 
     missingRefs = list()
@@ -195,9 +197,8 @@ if __name__ == "__main__":
             if success:
                 newRefs += getRefs(soupOfRef)
             else:
-                print(success, soupOfRef, status)
-                missingRefs += ref
-                print("Something is wrong: No Valid Schema Found #{}".format(len(missingRefs)), file=sys.stderr)
+                missingRefs.append(ref)
+                print("No valid schema found for {}".format(ref), file=sys.stderr)
         refs = newRefs
 
     if args.refoutput is not None:
@@ -207,11 +208,13 @@ if __name__ == "__main__":
 
     if len(allRefs) > 0:
         print("Work complete, total failures: ", len(missingRefs))
-        for miss in missingRefs:
-            print(str(miss))
+        if missingRefs:
+            print('References in error:')
+            for miss in missingRefs:
+                print('    {}'.format(miss))
         print("Total references: ", len(allRefs))
     else:
-        print("No references found, if this is incorrect, check capitalization/spelling of xml tags.")
+        print("No references found. If this is incorrect, check capitalization/spelling of xml tags.")
 
     if len(missingRefs) > 0:
         sys.exit(1)
