@@ -1,5 +1,5 @@
 # Copyright Notice:
-# Copyright 2016 Distributed Management Task Force, Inc. All rights reserved.
+# Copyright 2016-2019 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Reference-Checker/blob/master/LICENSE.md
 
 from glob import glob
@@ -15,7 +15,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-tool_version = '1.0.0'
+tool_version = '1.0.1'
 
 def generateXmlReferences(reftags):
     # unused block to write a valid xml file instead of just printing to file
