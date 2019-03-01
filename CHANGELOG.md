@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.1] - 2019-03-01
+- Fixed a URL parsing bug
+
 ## [1.0.0] - 2018-03-02
 - Added tag validation
 - Removed restriction on BeautifulSoup version
